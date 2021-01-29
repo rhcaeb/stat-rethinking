@@ -117,3 +117,41 @@ plot( sample2.mu , sample2.sigma , cex=0.5 ,
 ## 4.25 - inspect the marginal posterior density for sigma, averaing over mu
 dens(sample2.sigma, norm.comp = TRUE)
 
+## 4.26 - Find the posterior distribution with quap()
+data("Howell1")
+d <- Howell1
+d2 <- d[d$age >= 18, ] # filter to include adults
+
+## 4.27 - formula list for quap()
+flist <- alist(
+  height ~ dnorm(mu, sigma),
+  mu ~ dnorm(178, 20),
+  sigma ~ dunif(0, 50)
+)
+
+## 4.28 - Fit the model to the data ('d2')
+m4.1 <- quap(flist, data = d2)
+
+## 4.29 - Posterior distribution
+precis(m4.1)
+
+## 4.31 - Changing sigma to a narrow prior
+m4.2 <- quap(
+  alist(
+    height ~ dnorm(mu, sigma),
+    mu ~ dnorm(178, 0.1),
+    sigma ~ dunif(0, 50)
+  ), data = d2)
+precis(m4.2)
+
+## 4.32 - View matrix of variances and covariances
+vcov(m4.1)
+
+## 4.33 - Vector of variances & Correlation matrix
+diag(vcov(m4.1)) # list of variances (square root of this = sigma)
+cov2cor(vcov(m4.1)) # correlation matrix
+
+## 4.34 - Sample vectors of values from multi-dimensional Gaussian dist.
+post <- extract.samples(m4.1, n = 1e4)
+head(post)
+precis(post)
