@@ -335,3 +335,109 @@ shade(mu.HPDI, weight.seq)
 # draw PI region for simulated heights
 shade(height.PI, weight.seq)
 
+## Chapter 4.5 - Curves from lines ----
+
+## 4.64 - polynomial regression
+library(rethinking)
+data(Howell1)
+d <- Howell1
+str(d)
+
+plot(height ~ weight, data = d)
+
+## 4.65 - pre-process variable transformations
+d$weight_s <- (d$weight - mean(d$weight))/sd(d$weight)
+d$weight_s2 <- d$weight_s^2
+
+m4.5 <- quap(
+  alist(
+    height ~ dnorm(mu, sigma),
+    mu <- a + b1*weight_s + b2*weight_s2,
+    a ~ dnorm(178, 20),
+    b1 ~ dlnorm(0,1),
+    b2 ~ dnorm(0,1),
+    sigma ~ dunif(0, 50)
+  ), data = d
+)
+
+## 4.67 - calculate mean relationship & 89% intervals of the mean and preds:
+weight.seq <- seq(from = -2.2, to = 2, length.out = 30)
+pred_dat <- list(weight_s = weight.seq, weight_s2 = weight.seq^2)
+mu <- link(m4.5, data = pred_dat)
+mu.mean <- apply(mu, 2, mean)
+mu.PI <- apply(mu, 2, PI, prob = 0.89)
+sim.height <- sim(m4.5, data = pred_dat)
+height.PI <- apply(sim.height, 2, PI, prob = 0.89)
+
+## 4.68 - plot above
+plot(height ~ weight_s, data = d, col = col.alpha(rangi2, 0.5))
+lines(weight.seq, mu.mean)
+shade(mu.PI, weight.seq)
+shade(height.PI, weight.seq)
+
+## 4.69 - fit model with mod (cubic regression on weight) of parabolic code
+d$weight_s3 <- d$weight_s^3 # new var
+
+m4.6 <- quap(
+  alist(
+    height ~ dnorm(mu, sigma),
+    mu <- a + b1*weight_s + b2*weight_s2 + b3*weight_s3,
+    a ~ dnorm(178, 20),
+    b1 ~ dlnorm(0,1),
+    b2 ~ dnorm(0,10),
+    b3 ~ dnorm(0,10),
+    sigma ~ dunif(0, 50)
+  ), data = d
+)
+
+## Chapter 4.5.2 - Splines ----
+
+## 4.72 - Japanese cherry blossom data ('wiggly data')
+library(rethinking)
+data("cherry_blossoms")
+d <- cherry_blossoms
+precis(d)
+
+plot(temp ~ year, data = d)
+
+## 4.73 - define a list of knot positions
+d2 <- d[complete.cases(d$temp), ] # complete cases on temp
+num_knots <- 15
+knot_list <- quantile(d2$year, probs = seq(0, 1, length.out = num_knots))
+
+## 4.74 - construct basis functions for degree 3, cubic, spline:
+library(splines)
+B <- bs(d2$year,
+        knots = knot_list[(-c(1, num_knots))],
+        degree = 3, intercept = TRUE)
+
+## 4.75 - display basis functions -> plot columns against years
+plot( NULL , xlim=range(d2$year) , ylim=c(0,1) , xlab="year" , ylab="basis value")
+for ( i in 1:ncol(B) ) lines( d2$year , B[,i] )
+
+## 4.76 - build model in quap()
+m4.7 <- quap(
+  alist(
+    T ~ dnorm(mu, sigma),
+    mu <- a + B %*% w,
+    a ~ dnorm(6, 10),
+    w ~ dnorm(0, 1),
+    sigma ~ dexp(1)
+  ), data = list(T = d2$temp, B=B), start = list(w = rep(0, ncol(B)))
+)
+
+precis(m4.7, depth = 2)
+
+## 4.77 - need to plot the posterior predictions
+# first -> weighted functions
+post <- extract.samples(m4.7)
+w <- apply(post$w, 2, mean)
+plot( NULL , xlim=range(d2$year) , ylim=c(-2,2) ,
+      xlab="year" , ylab="basis * weight" )
+for ( i in 1:ncol(B) ) lines( d2$year , w[i]*B[,i] )
+
+## 4.78 - knots added for reference
+mu <- link(m4.7)
+mu_PI <- apply(mu, 2, PI, 0.97)
+plot( d2$year , d2$temp , col=col.alpha(rangi2,0.3) , pch=16 )
+shade( mu_PI , d2$year , col=col.alpha("black",0.5) )
