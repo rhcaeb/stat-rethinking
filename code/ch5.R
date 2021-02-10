@@ -55,3 +55,35 @@ m5.2 <- quap(
     bM ~ dnorm(0, 0.5),
     sigma ~ dexp(1)
   ), data = d)
+
+## 5.7 - Drawing a DAG
+library(dagitty)
+dag5.1 <- dagitty("dag{
+                  A -> D
+                  A -> M
+                  M -> D}")
+coordinates(dag5.1) <- list(x = c(A = 0, D = 1, M = 2), y = c(A = 0, D = 1, M = 0))
+drawdag(dag5.1)
+
+## 5.8 - Define the second DAG
+DMA_dag2 <- dagitty('dag{D <- A -> M}')
+impliedConditionalIndependencies(DMA_dag2) 
+
+## 5.9 - First DAG has no conditional independencies (check):
+DMA_dag1 <- dagitty('dag{D <- A -> M -> D}')
+impliedConditionalIndependencies(DMA_dag1) # no output to display
+
+## 5.10 - approximate the posterior (fit model to divorce rate):
+m5.3 <- quap(
+  alist(
+    D ~ dnorm(mu, sigma),
+    mu <- a + bM*M + bA*A,
+    a ~ dnorm(0, 0.2),
+    bM ~ dnorm(0, 0.5),
+    bA ~ dnorm(0, 0.5),
+    sigma ~ dexp(1)
+  ), data = d)
+precis(m5.3)
+
+## 5.11 - visualize posterior distributions for all three models focusing on slope params bA + bM:
+plot(coeftab(m5.1, m5.2, m5.3), par = c("bA", "bM"))
