@@ -87,3 +87,95 @@ precis(m5.3)
 
 ## 5.11 - visualize posterior distributions for all three models focusing on slope params bA + bM:
 plot(coeftab(m5.1, m5.2, m5.3), par = c("bA", "bM"))
+
+## 5.13 - predictor residual plots: approx. posterior
+m5.4 <- quap(
+  alist(
+    M ~ dnorm(mu, sigma),
+    mu <- a + bAM * A,
+    a ~ dnorm(0, 0.2),
+    bAM ~ dnorm(0, 0.5),
+    sigma ~ dexp(1)
+  ), data = d)
+
+
+## 5.14 - computer residuals by subtracting the obs M in each state from the pred. rate:
+mu <- link(m5.4)
+mu_mean <- apply(mu, 2, mean)
+mu_resid <- d$M - mu_mean
+
+## 5.15 - posterior predictive check -> simulate predictions, averaging over the posterior
+# call link without specifying new data
+# so it uses original data
+mu <- link(m5.3)
+
+# summarize samples across cases
+mu_mean <- apply(mu, 2, mean)
+mu_PI <- apply(mu, 2, PI)
+
+# simulate observations
+# again, no new data, so uses original data
+D_sim <- sim(m5.3, n = 1e4)
+D_PI <- apply(D_sim, 2, PI)
+
+
+## 5.16 - plot predictions against observed 
+## and add a line to show prediction and line segments for the CI for each pred.
+plot(mu_mean ~ d$D, col=rangi2, ylim = range(mu_PI),
+     xlab = "Obs. divorce", ylab = "Pred. divorve")
+abline(a = 0, b = 1, lty = 2)
+for(i in 1:nrow(d)) lines(rep(d$D[i],2), mu_PI[, i], col = rangi2)
+
+## 5.17 - label a few select points
+identify(x = d$D, y = mu_mean, labels = d$Loc)
+
+## 5.19 - add regression to the quap model running two regressions at the same time
+data("WaffleDivorce")
+d <- list()
+d$A <- standardize(WaffleDivorce$MedianAgeMarriage)
+d$D <- standardize(WaffleDivorce$Divorce)
+d$M <- standardize(WaffleDivorce$Marriage)
+
+m5.3_A <- quap(
+  alist(
+    ## A -> D <- M
+    D ~ dnorm(mu, sigma),
+    mu <- a + bM*M + bA*A,
+    a ~ dnorm(0, 0.2),
+    bM ~ dnorm(0, 0.5),
+    bA ~ dnorm(0, 0.5),
+    sigma ~ dexp(1),
+    
+    ## A -> M
+    M ~ dnorm(mu_M, sigma_M),
+    mu_M <- aM + bAM*A,
+    aM ~ dnorm(0, 0.2),
+    bAM ~ dnorm(0, 0.5),
+    sigma_M ~ dexp(1)
+  ), data = d)
+
+precis(m5.3_A)
+
+## 5.20 - define a range of values for A:
+A_seq <- seq(from = -2, to = 2, length.out = 30)
+
+## 5.21 - sim.observations
+# prep data
+sim_dat <- data.frame(A=A_seq)
+
+# simulate M and then D, using A_seq
+s <- sim(m5.3_A, data = sim_dat, vars = c("M", "D"))
+
+## 5.22 - display counterfactual preds
+plot( sim_dat$A , colMeans(s$D) , ylim=c(-2,2) , type="l" ,
+      xlab="manipulated A" , ylab="counterfactual D" )
+shade( apply(s$D,2,PI) , sim_dat$A )
+mtext( "Total counterfactual effect of A on D" )
+
+## 5.23 - simulate a counterfactual for an avg. stage w/ A = 0..and see what changing M does
+sim_dat <- data.frame( M=seq(from=-2,to=2,length.out=30) , A=0 )
+s <- sim( m5.3_A , data=sim_dat , vars="D" )
+plot( sim_dat$M , colMeans(s) , ylim=c(-2,2) , type="l" ,
+      xlab="manipulated M" , ylab="counterfactual D" )
+shade( apply(s,2,PI) , sim_dat$M )
+mtext( "Total counterfactual effect of M on D" )
