@@ -179,3 +179,108 @@ plot( sim_dat$M , colMeans(s) , ylim=c(-2,2) , type="l" ,
       xlab="manipulated M" , ylab="counterfactual D" )
 shade( apply(s,2,PI) , sim_dat$M )
 mtext( "Total counterfactual effect of M on D" )
+
+## 5.27 - load data
+library(rethinking)
+data(milk)
+d <- milk
+str(milk)
+
+## 5.28 - standardize three variables of interest
+d$K <- scale(d$kcal.per.g)
+d$N <- scale(d$neocortex.perc)
+d$M <- scale(d$mass)
+
+## 5.29 - quap model with vague priors
+m5.5_draft <- quap(
+  alist(
+    K ~ dnorm(mu, sigma),
+    mu <- a + bN*N,
+    a ~ dnorm(0, 1),
+    bN ~ dnorm(0, 1),
+    sigma ~ dexp(1)
+  ), data = d
+)
+
+## 5.30 - missing values in 'N' variable (m5.5 won't run - see above)
+d$neocortex.perc
+
+## 5.31 - complete case analysis -> new df
+dcc <- d[complete.cases(d$K, d$N, d$M), ]
+
+## 5.32 - re-run quap() with new df
+m5.5_draft <- quap(
+  alist(
+    K ~ dnorm(mu, sigma),
+    mu <- a + bN*N,
+    a ~ dnorm(0, 1),
+    bN ~ dnorm(0, 1),
+    sigma ~ dexp(1)
+  ), data = dcc
+)
+
+## 5.33 - are the priors reasonable? simulate and plot 50 regression lines...
+prior <- extract.prior(m5.5_draft)
+xseq <- c(-2,2)
+mu <- link(m5.5_draft, post = prior, data=list(N=xseq))
+plot(NULL, xlim=xseq, ylim = xseq)
+for(i in 1:50) lines(xseq, mu[i,], col = col.alpha("black", 0.3))
+
+## 5.34 - attempt for 'better' priors
+m5.5 <- quap(
+  alist(
+    K ~ dnorm(mu, sigma),
+    mu <- a + bN*N,
+    a ~ dnorm(0, 0.2),
+    bN ~ dnorm(0, 0.5),
+    sigma ~ dexp(1)
+  ), data = dcc
+)
+
+precis(m5.5)
+
+## 5.36 - plot predicted mean and 89% CI for the mean:
+xseq <- seq(from = min(dcc$N)-0.15, to = max(dcc$N+0.15, length.out = 30))
+mu <- link(m5.5, data = list(N = xseq))
+mu_mean <- apply(mu, 2, mean)
+mu_PI <- apply(mu, 2, PI)
+plot(K ~ N, data = dcc)
+lines(xseq, mu_mean, lwd=2)
+shade(mu_PI, xseq)
+
+## 5.37 - new model, considering the bivariate relationship b/w K and M
+m5.6 <- quap(
+  alist(
+    K ~ dnorm(mu, sigma),
+    mu <- a + bM*M,
+    a ~ dnorm(0, 0.2),
+    bM ~ dnorm(0, 0.5),
+    sigma ~ dexp(1)
+  ), data = dcc
+)
+precis(m5.6)
+
+## 5.38 - multivariate model -> approximate posterior
+m5.7 <- quap(
+  alist(
+    K ~ dnorm(mu, sigma),
+    mu <- a + bN*N + bM*M,
+    a ~ dnorm(0, 0.2),
+    bN ~ dnorm(0, 0.5),
+    bM ~ dnorm(0, 0.5),
+    sigma ~ dexp(1)
+  ), data = dcc
+)
+precis(m5.7)
+
+## 5.39 - visually compare this posterior to those of the previous two models
+plot(coeftab(m5.5, m5.6, m5.7), pars = c("bM", "bN"))
+
+## 5.40 - counterfactual plot!
+xseq <- seq(from = min(dcc$M)-0.15, to = max(dcc$M)+0.15, length.out = 30)
+mu <- link(m5.7, data = data.frame(M = xseq, N = 0))
+mu_mean <- apply(mu, 2, mean)
+mu_PI <- apply(mu, 2, PI)
+plot(NULL, xlim = range(dcc$M), ylim = range(dcc$K))
+lines(xseq, mu_mean, lwd = 2)
+shade(mu_PI, xseq)
