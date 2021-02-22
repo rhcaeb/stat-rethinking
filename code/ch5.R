@@ -284,3 +284,68 @@ mu_PI <- apply(mu, 2, PI)
 plot(NULL, xlim = range(dcc$M), ylim = range(dcc$K))
 lines(xseq, mu_mean, lwd = 2)
 shade(mu_PI, xseq)
+
+
+## 5.44 - binary categories
+data("Howell1")
+d <- Howell1
+str(d)
+
+## 5.45 - simulate priors (males + females)
+mu_female <- rnorm(1e4, 178, 20)
+mu_male <- rnorm(1e4, 178, 20) + rnorm(1e4, 0, 10)
+precis(data.frame(mu_female, mu_male))
+
+## 5.46 - construct index
+d$sex <- ifelse(d$male == 1, 2, 1)
+str(d$sex)
+
+## 5.47 - approximate posterior for model using index var
+m5.8 <- quap(
+  alist(
+    height ~ dnorm(mu, sigma),
+    mu <- a[sex],
+    a[sex] ~ dnorm(178, 20),
+    sigma ~ dunif(0, 50)
+  ), data = d)
+precis(m5.8, depth = 2)
+
+## 5.48 - compute expected difference between male+female
+post <- extract.samples(m5.8)
+post$diff_fm <- post$a[, 1] - post$a[, 2]
+precis(post, depth = 2)
+
+## 5.49 - many categories!!
+data(milk)
+d <- milk
+unique(d$clade)
+
+## 5.50 - coerce factor -> integer
+d$clade_id <- as.integer(d$clade)
+
+## 5.51 - model to measure avg milk energy in each clade
+d$K <- scale(d$kcal.per.g)
+m5.9 <- quap(
+  alist(
+    K ~ dnorm(mu, sigma),
+    mu <- a[clade_id],
+    a[clade_id] ~ dnorm(0, 0.5),
+    sigma ~ dexp(1)
+  ), data = d)
+
+labels <- paste("a[", 1:4, "]:", levels(d$clade), sep = "")
+plot(precis(m5.9, depth = 2, pars = 'a'), labels = labels,
+     xlab = "expected kcal (std)")
+
+## 5.52 - randomly assign primates to (made up) categories
+set.seed(63)
+d$house <- sample(rep(1:4, each = 8), size = nrow(d))
+m5.10 <- quap(
+  alist(
+    K ~ dnorm(mu, sigma),
+    mu <- a[clade_id] + h[house],
+    a[clade_id] ~ dnorm(0, 0.5),
+    h[house] ~ dnorm(0, 0.5),
+    sigma ~ dexp(1)
+  ), data = d)
+precis(m5.10, depth = 2)
