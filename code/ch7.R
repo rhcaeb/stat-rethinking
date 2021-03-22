@@ -112,3 +112,5 @@ ci <- apply(l, 2, PI)
 plot(brain_std ~ mass_std, data = d)
 lines(mass_seq, mu)
 shade(ci, mass_seq)
+
+## 7.2 - entropy and accuracy
