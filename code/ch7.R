@@ -17,6 +17,7 @@ d$mass_std <- (d$mass - mean(d$mass))/sd(d$mass)
 d$brain_std <- d$brain / max(d$brain)
 
 ## model fit
+
 m7.1 <- quap(
   alist(
     brain_std ~ dnorm(mu, exp(log_sigma)),
@@ -114,3 +115,19 @@ lines(mass_seq, mu)
 shade(ci, mass_seq)
 
 ## 7.2 - entropy and accuracy
+
+## 7.12 - e.g. to help demystify the function H(p)
+## compute information entropy
+p <- c(0.3, 0.7)
+-sum(p*log(p))
+
+## 7.13 - log-pointwise-predictive-density (lppd)
+set.seed(1)
+lppd(m7.1, n = 1e4)
+
+## 7.15 - compute log score for each of the models from earlier
+set.seed(1)
+sapply(list(m7.1, m7.2, m7.3, m7.4, m7.5, m7.6), function(m) sum(lppd(m)))
+
+## 7.3 - golem training: regularization
+
