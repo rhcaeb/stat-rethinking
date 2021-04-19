@@ -131,3 +131,13 @@ sapply(list(m7.1, m7.2, m7.3, m7.4, m7.5, m7.6), function(m) sum(lppd(m)))
 
 ## 7.3 - golem taming!: regularization
 
+## 7.4 - predicting predictive accuracy
+
+# note: default; leave-one-out cross-validation for cv_quap
+# note: PSIS -> pareto-smoothed importance sampling cross-validation
+
+
+
+
+
+
