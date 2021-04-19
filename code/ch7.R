@@ -129,5 +129,5 @@ lppd(m7.1, n = 1e4)
 set.seed(1)
 sapply(list(m7.1, m7.2, m7.3, m7.4, m7.5, m7.6), function(m) sum(lppd(m)))
 
-## 7.3 - golem training: regularization
+## 7.3 - golem taming!: regularization
 
